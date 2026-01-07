@@ -27,12 +27,4 @@
 ## 🔬 Metrik Akurasi (RMSE)
 Akurasi model dihitung menggunakan *Root Mean Square Error*. Semakin rendah angka RMSE, semakin presisi proyeksi terhadap harga aktual.
 
-| Asset | Market | RMSE Score | Reliability |
-| :--- | :--- | :--- | :--- |
-| **BBCA.JK** | IDX (Indonesia) | **~381.00** | **95.2%** |
-| **NVDA** | NASDAQ (USA) | **~7.79** | **95.8%** |
-| **BTC-USD** | Crypto | *Dynamic* | **94.5%** |
-
-
-
 ---
