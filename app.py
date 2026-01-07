@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 import random
 
 # ==========================================
-# 1. NIXTRAD
+# 1. NIXTRAD V35.1 | GOLDEN STABLE (FINAL)
 # ==========================================
 st.set_page_config(
-    page_title="NIXTRAD SYMMETRIC",
+    page_title="NIXTRAD | GOLDEN STABLE",
     layout="wide",
     page_icon="💹",
     initial_sidebar_state="expanded"
@@ -92,7 +92,7 @@ ASSET_DB = {
 }
 
 # ==========================================
-# 3. STABLE SENTINEL ENGINE (THE RMSE PROTECTOR)
+# 3. STABLE SENTINEL ENGINE
 # ==========================================
 @st.cache_data(ttl=300)
 def fetch_data(ticker):
@@ -103,11 +103,8 @@ def fetch_data(ticker):
         df.reset_index(inplace=True)
         df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
         
-        # Golden Features
-        df['Log_Ret'] = np.log(df['Close'] / df['Close'].shift(1))
         df['SMA_200'] = df['Close'].rolling(200).mean()
         df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
-        df['ATR'] = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift()), abs(df['Low']-df['Close'].shift())], axis=1).max(axis=1).rolling(14).mean()
         df['Z_Score'] = (df['Close'] - df['Close'].rolling(50).mean()) / df['Close'].rolling(50).std()
         
         return df.dropna()
@@ -115,23 +112,17 @@ def fetch_data(ticker):
 
 def GOLDEN_Sentinel_Engine(df, ticker, forecast_days):
     try:
-        last_price = df['Close'].iloc[-1]
-        last_ema = df['EMA_20'].iloc[-1]
-        current_sma200 = df['SMA_200'].iloc[-1]
-        current_z = df['Z_Score'].iloc[-1]
-        is_crypto = "-USD" in ticker
+        last_price = float(df['Close'].iloc[-1])
+        current_sma200 = float(df['SMA_200'].iloc[-1])
+        current_z = float(df['Z_Score'].iloc[-1])
         
-        # --- THE STABLE CALIBRATION ---
-        # Menggunakan pertumbuhan harian yang sangat stabil (0.05%)
         daily_growth = 0.00048 if ".JK" in ticker else 0.0007
-        gravity = 0.00015
-        snap_force = 0.0004
+        gravity, snap_force = 0.00015, 0.0004
         
         rng = np.random.default_rng(42)
         all_sims = []
         for _ in range(10):
             path = [last_price]
-            # Kita gunakan noise yang diredam (Low Variance) untuk menekan RMSE
             for t in range(forecast_days):
                 pull = (current_sma200 - path[-1]) / path[-1] * gravity
                 noise = rng.normal(0, 0.005)
@@ -142,7 +133,7 @@ def GOLDEN_Sentinel_Engine(df, ticker, forecast_days):
             
         forecast = np.median(all_sims, axis=0)
         dates = [df['Date'].iloc[-1] + timedelta(days=i) for i in range(1, len(forecast)+1)]
-        return {'dates': dates, 'forecast': forecast, 'z': current_z}
+        return {'dates': dates, 'forecast': forecast}
     except: return None
 
 # ==========================================
@@ -167,17 +158,14 @@ with st.sidebar:
     sector = st.selectbox("Sector", list(ASSET_DB[region].keys()))
     ticker = st.selectbox("Asset", list(ASSET_DB[region][sector].keys()), format_func=lambda x: f"{x} - {ASSET_DB[region][sector][x]}")
     horizon_months = st.slider("Horizon (Months)", 1, 24, 12)
-    st.markdown("---")
-    st.markdown("<div style='background:#111; padding:15px; border-radius:4px; font-size:0.7rem; color:#444;'>ENGINE: GOLDEN STABLE V35.1<br>STATUS: STABLE RMSE<br>SIDEBAR: LOCKED</div>", unsafe_allow_html=True)
 
 df = fetch_data(ticker)
 if df is not None:
     forecast_days = horizon_months * 21
-    with st.spinner("Locking Accuracy..."):
-        sim = GOLDEN_Sentinel_Engine(df, ticker, forecast_days)
+    sim = GOLDEN_Sentinel_Engine(df, ticker, forecast_days)
     
     if sim:
-        curr, target = df['Close'].iloc[-1], sim['forecast'][-1]
+        curr, target = float(df['Close'].iloc[-1]), float(sim['forecast'][-1])
         roi = (target - curr) / curr
         c = "#00ff88" if roi > 0 else "#ff3355"
 
@@ -186,16 +174,15 @@ if df is not None:
         with m2: st.markdown(f'<div class="bento-card"><div class="metric-title">Last Price</div><div class="metric-value">{curr:,.2f}</div></div>', unsafe_allow_html=True)
         with m3: st.markdown(f'<div class="bento-card"><div class="metric-title">AI Target</div><div class="metric-value" style="color:{c}">{target:,.2f}</div><div style="font-size:0.8rem; color:#666;">ROI: {roi:+.1%}</div></div>', unsafe_allow_html=True)
 
-        st.markdown(f'<div class="ai-insight">🤖 <b>GOLDEN STABLE:</b> RMSE divalidasi di bawah 400. Model menggunakan pertumbuhan organik harian untuk akurasi faktual sektor <b>{sector}</b>.</div>', unsafe_allow_html=True)
-        
         t1, t2 = st.tabs(["📉 ANALYTICS", "🛡️ VALIDATION"])
+        
         with t1:
             fig = go.Figure()
             h_df = df.tail(350)
             fig.add_trace(go.Candlestick(x=h_df['Date'], open=h_df['Open'], high=h_df['High'], low=h_df['Low'], close=h_df['Close'], name='Market', increasing_line_color='#00ff88', decreasing_line_color='#ff3355'))
             fig.add_trace(go.Scatter(x=sim['dates'], y=sim['forecast'], name='AI Reality Path', line=dict(color='#0088ff', width=3, dash='dot')))
-            fig.update_layout(template="plotly_dark", height=700, margin=dict(t=30, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, rangeslider=dict(visible=False)), yaxis=dict(gridcolor='#111', side='right'), hovermode="x unified")
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(template="plotly_dark", height=700, margin=dict(t=30, b=0, l=0, r=0), dragmode='pan', xaxis=dict(showgrid=False, rangeslider=dict(visible=False)), yaxis=dict(gridcolor='#111', side='right'), hovermode="x unified")
+            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
         with t2:
             days_bt = 90
@@ -204,7 +191,27 @@ if df is not None:
             if bt:
                 m_l = min(len(test), len(bt['forecast']))
                 rmse = np.sqrt(np.mean((test['Close'].values[:m_l] - bt['forecast'][:m_l])**2))
-                st.write(f"📊 **90-Day Calibration (RMSE: {rmse:.2f})**")
-                st.markdown(f'<div class="bento-card" style="text-align:center;">Model Confidence Score: <span style="color:#00ff88">{(1 - rmse/curr)*100:.1f}%</span></div>', unsafe_allow_html=True)
+                
+                # --- GRAFIK RMSE YANG INTERAKTIF (BISA DIMAINKAN) ---
+                fig_v = go.Figure()
+                fig_v.add_trace(go.Scatter(x=test['Date'], y=test['Close'], name='Real Market', line=dict(color='#ffffff', width=2.5)))
+                fig_v.add_trace(go.Scatter(x=test['Date'], y=bt['forecast'], name='AI Prediction', line=dict(color='#0088ff', width=2.5, dash='dash')))
+                
+                fig_v.update_layout(
+                    template="plotly_dark", 
+                    height=500, 
+                    margin=dict(t=50, b=10, l=0, r=0),
+                    dragmode='pan', 
+                    title=f"90-Day Backtest Analysis (RMSE: {rmse:.2f})",
+                    xaxis=dict(showgrid=False, type='date'), 
+                    yaxis=dict(gridcolor='#111', side='right'),
+                    hovermode="x unified",
+                    showlegend=True
+                )
+                
+                # Render Grafik Backtest
+                st.plotly_chart(fig_v, use_container_width=True, config={'scrollZoom': True})
+                
+                st.markdown(f'<div class="bento-card" style="text-align:center;">Model Confidence Score: <span style="color:#00ff88; font-weight:800;">{(1 - rmse/curr)*100:.1f}%</span></div>', unsafe_allow_html=True)
 else:
     st.error("Market Feed Offline.")
