@@ -210,3 +210,5 @@ if df is not None and not df.empty:
             st.markdown(f'<div class="bento-card" style="height:auto; margin-top:20px;">RMSE: {rmse:.2f} | Reliability: {(1 - rmse/curr)*100:.1f}%</div>', unsafe_allow_html=True)
 else:
     st.error("Data Feed Offline atau Terkena Rate Limit. Silakan coba lagi nanti.")
+    
+# Updated
