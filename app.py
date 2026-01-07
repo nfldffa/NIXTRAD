@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 import random
 
 # ==========================================
-# 1. NIXTRAD V35.1 | GOLDEN STABLE (FINAL)
+# 1. NIXTRAD SYMMETRIC
 # ==========================================
 st.set_page_config(
-    page_title="NIXTRAD | GOLDEN STABLE",
+    page_title="NIXTRAD SYMMETRIC",
     layout="wide",
     page_icon="💹",
     initial_sidebar_state="expanded"
@@ -40,7 +40,6 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
-    /* LOCK SIDEBAR BLACK */
     [data-testid="stSidebar"] {
         background-color: #050505 !important;
         border-right: 1px solid var(--border-color) !important;
@@ -73,7 +72,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. JUMBO ASSET DATABASE
+# 2. ASSET DATABASE
 # ==========================================
 ASSET_DB = {
     "🇮🇩 INDONESIA": {
@@ -92,7 +91,7 @@ ASSET_DB = {
 }
 
 # ==========================================
-# 3. STABLE SENTINEL ENGINE
+# 3. STABLE SENTINEL ENGINE (LOGIKA ASLI UNTOUCHED)
 # ==========================================
 @st.cache_data(ttl=300)
 def fetch_data(ticker):
@@ -112,12 +111,14 @@ def fetch_data(ticker):
 
 def GOLDEN_Sentinel_Engine(df, ticker, forecast_days):
     try:
+        # Pake float() biar ga error pas deploy
         last_price = float(df['Close'].iloc[-1])
         current_sma200 = float(df['SMA_200'].iloc[-1])
         current_z = float(df['Z_Score'].iloc[-1])
         
         daily_growth = 0.00048 if ".JK" in ticker else 0.0007
-        gravity, snap_force = 0.00015, 0.0004
+        gravity = 0.00015
+        snap_force = 0.0004
         
         rng = np.random.default_rng(42)
         all_sims = []
@@ -137,7 +138,7 @@ def GOLDEN_Sentinel_Engine(df, ticker, forecast_days):
     except: return None
 
 # ==========================================
-# 4. DASHBOARD RENDER
+# 4. UI RENDER
 # ==========================================
 st.markdown("""<div class="ticker-wrap"><div class="ticker">
     <span class="ticker-item" style="color:#00ff88">BBCA.JK 10,250 ▲ 0.8%</span>
@@ -192,7 +193,7 @@ if df is not None:
                 m_l = min(len(test), len(bt['forecast']))
                 rmse = np.sqrt(np.mean((test['Close'].values[:m_l] - bt['forecast'][:m_l])**2))
                 
-                # --- GRAFIK RMSE YANG INTERAKTIF (BISA DIMAINKAN) ---
+                # --- GRAFIK VALIDASI (DIBUAT INTERAKTIF) ---
                 fig_v = go.Figure()
                 fig_v.add_trace(go.Scatter(x=test['Date'], y=test['Close'], name='Real Market', line=dict(color='#ffffff', width=2.5)))
                 fig_v.add_trace(go.Scatter(x=test['Date'], y=bt['forecast'], name='AI Prediction', line=dict(color='#0088ff', width=2.5, dash='dash')))
@@ -201,15 +202,14 @@ if df is not None:
                     template="plotly_dark", 
                     height=500, 
                     margin=dict(t=50, b=10, l=0, r=0),
-                    dragmode='pan', 
+                    dragmode='pan', # Biar bisa digeser
                     title=f"90-Day Backtest Analysis (RMSE: {rmse:.2f})",
                     xaxis=dict(showgrid=False, type='date'), 
                     yaxis=dict(gridcolor='#111', side='right'),
                     hovermode="x unified",
                     showlegend=True
                 )
-                
-                # Render Grafik Backtest
+                # Pake scrollZoom: True biar bisa di-zoom pake mouse wheel
                 st.plotly_chart(fig_v, use_container_width=True, config={'scrollZoom': True})
                 
                 st.markdown(f'<div class="bento-card" style="text-align:center;">Model Confidence Score: <span style="color:#00ff88; font-weight:800;">{(1 - rmse/curr)*100:.1f}%</span></div>', unsafe_allow_html=True)
