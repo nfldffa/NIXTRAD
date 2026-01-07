@@ -6,16 +6,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import pytz
-import random
 
 # ==========================================
 # 1. CONFIG & SYMMETRIC STYLING
 # ==========================================
 st.set_page_config(page_title="NIXTRAD SYMMETRIC", layout="wide", initial_sidebar_state="expanded")
-
-# Fix Seed
-np.random.seed(42)
-random.seed(42)
 
 st.markdown("""
 <style>
@@ -74,19 +69,19 @@ def format_currency(value, ticker):
 @st.cache_data(ttl=600)
 def fetch_data(ticker):
     try:
-        # Gunakan yf.download untuk stabilitas deploy
+        # Pake yf.download biar stabil di server Streamlit
         df = yf.download(ticker, period="5y", interval="1d", auto_adjust=True, progress=False)
         
         if df is None or df.empty:
             return None, None
             
-        # Fix MultiIndex yfinance
+        # Fix MultiIndex yfinance terbaru
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
             
         df.reset_index(inplace=True)
         
-        # Technicals
+        # Kalkulasi Indikator
         df['SMA_200'] = df['Close'].rolling(200).mean()
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -96,11 +91,11 @@ def fetch_data(ticker):
         
         upd = df['Date'].iloc[-1].strftime("%d %b %Y")
         return df.dropna(), upd
-    except:
+    except Exception:
         return None, None
 
 def ENGINE(df, ticker, days):
-    # FORCE FLOAT CONVERSION - Menghindari ValueError: Ambiguous Series
+    # FORCE FLOAT: Biar gak error 'ambiguous truth value' pas deploy
     last_p = float(df['Close'].iloc[-1])
     sma_200 = float(df['SMA_200'].iloc[-1])
     rsi = float(df['RSI'].iloc[-1])
@@ -129,21 +124,30 @@ def ENGINE(df, ticker, days):
     return {'dates': dates, 'forecast': forecast}
 
 # ==========================================
-# 3. SIDEBAR & DATABASE
+# 3. DATABASE PRODUK (LENGKAP)
 # ==========================================
 DB = {
-    "🇮🇩 INDONESIA STOCKS": ["BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK", "GOTO.JK", "ANTM.JK"],
-    "🇺🇸 USA TECH": ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMD", "META"],
-    "🪙 CRYPTO CURRENCY": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "DOGE-USD"],
-    "🏆 COMMODITIES": ["GC=F", "SI=F", "CL=F"],
-    "📈 GLOBAL INDICES": ["^JKSE", "^GSPC", "^IXIC", "^DJI"],
-    "💱 FOREX": ["USDIDR=X", "EURUSD=X", "GBPUSD=X", "JPYUSD=X"]
+    "🇮🇩 INDONESIA STOCKS": [
+        "BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK", 
+        "GOTO.JK", "ANTM.JK", "ADRO.JK", "UNVR.JK", "AMRT.JK"
+    ],
+    "🇺🇸 USA TECH": [
+        "NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", 
+        "AMD", "META", "AMZN", "NFLX", "INTC"
+    ],
+    "🪙 CRYPTO CURRENCY": [
+        "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD",
+        "ADA-USD", "DOGE-USD", "DOT-USD", "MATIC-USD"
+    ]
 }
 
+# ==========================================
+# 4. SIDEBAR
+# ==========================================
 with st.sidebar:
     st.markdown('<div class="sidebar-brand">NIX<span>TRAD</span></div>', unsafe_allow_html=True)
     lang = st.radio("Language", ["ID", "EN"], horizontal=True, label_visibility="collapsed")
-    reg = st.selectbox("Region", list(DB.keys()))
+    reg = st.selectbox("Category", list(DB.keys()))
     ticker = st.selectbox("Asset", DB[reg])
     hrz = st.slider("Horizon (Months)", 1, 24, 12)
     st.markdown("---")
@@ -151,7 +155,7 @@ with st.sidebar:
     st.markdown(f'<div class="status-badge {m_css}">{m_txt}</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. RENDER UI
+# 5. RENDER UI
 # ==========================================
 t = {
     "ID": {"upd": "Update", "price": "Harga", "target": "Target", "roi": "ROI", "val": "Validasi"},
@@ -163,15 +167,14 @@ df, last_upd = fetch_data(ticker)
 if df is not None and not df.empty:
     sim = ENGINE(df, ticker, hrz * 21)
     
-    # KONVERSI KE FLOAT UNTUK MENGHINDARI ERROR DI DEPLOY
+    # KONVERSI FLOAT (FIX DEPLOY)
     curr = float(df['Close'].iloc[-1])
     target = float(sim['forecast'][-1])
     roi = float((target - curr) / curr)
     
-    # Logic warna ROI (Baris 165 Fix)
     c_roi = "#00ff88" if roi > 0 else "#ff3355"
 
-    # GRID UI
+    # SYMMETRIC GRID
     c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
     with c1: st.markdown(f'<div class="bento-card"><div class="metric-title">{t["upd"]}</div><div class="metric-value" style="font-size:1.1rem;">{last_upd}</div></div>', unsafe_allow_html=True)
     with c2: st.markdown(f'<div class="bento-card"><div class="metric-title">{t["price"]}</div><div class="metric-value">{format_currency(curr, ticker)}</div></div>', unsafe_allow_html=True)
@@ -186,7 +189,6 @@ if df is not None and not df.empty:
         fig.add_trace(go.Candlestick(x=h['Date'], open=h['Open'], high=h['High'], low=h['Low'], close=h['Close'], name='Market', increasing_line_color='#00ff88', decreasing_line_color='#ff3355'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sim['dates'], y=sim['forecast'], name='NIXTRAD Path', line=dict(color='#0088ff', width=3, dash='dot')), row=1, col=1)
         
-        # Volume Color Fix
         v_colors = ['#00ff88' if float(r['Close']) >= float(r['Open']) else '#ff3355' for _, r in h.iterrows()]
         fig.add_trace(go.Bar(x=h['Date'], y=h['Volume'], marker_color=v_colors, opacity=0.6, name='Volume'), row=2, col=1)
         
@@ -204,8 +206,7 @@ if df is not None and not df.empty:
             fig_v.update_layout(template="plotly_dark", height=500, title="90-Day Backtest Analysis", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False), yaxis=dict(side='right', gridcolor='#111'))
             st.plotly_chart(fig_v, use_container_width=True)
             
-            # RMSE Fix
             rmse = np.sqrt(np.mean((test['Close'].values - bt['forecast'][:len(test)])**2))
             st.markdown(f'<div class="bento-card" style="height:auto; margin-top:20px;">RMSE: {rmse:.2f} | Reliability: {(1 - rmse/curr)*100:.1f}%</div>', unsafe_allow_html=True)
 else:
-    st.error("Data Feed Offline. Silakan cek koneksi API atau ganti Asset.")
+    st.error("Data Feed Offline atau Terkena Rate Limit. Silakan coba lagi nanti.")
