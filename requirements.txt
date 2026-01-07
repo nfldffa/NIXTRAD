@@ -1,6 +1,6 @@
 streamlit
-yfinance>=0.2.40
-pandas
+yfinance==0.2.52
+pandas==2.2.2
 numpy
 plotly
 pytz
