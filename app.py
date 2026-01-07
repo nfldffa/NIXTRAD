@@ -13,7 +13,7 @@ import random
 # ==========================================
 st.set_page_config(page_title="NIXTRAD SYMMETRIC", layout="wide", initial_sidebar_state="expanded")
 
-# Fix Seed
+# Fix Seed for Consistency
 np.random.seed(42)
 random.seed(42)
 
@@ -21,16 +21,33 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
     :root { --bg: #000; --card: #0a0a0a; --bull: #00ff88; --bear: #ff3355; --accent: #0088ff; }
+    
     .stApp { background-color: var(--bg); color: #fff; font-family: 'Inter', sans-serif; }
+    
+    /* SIDEBAR */
     [data-testid="stSidebar"] { background-color: #050505 !important; border-right: 1px solid #1e1e1e !important; }
     .sidebar-brand { font-size: 2.2rem; font-weight: 800; letter-spacing: -2px; color: #fff; text-align: center; padding: 20px 0; border-bottom: 1px solid #1e1e1e; }
     .sidebar-brand span { color: var(--bull); }
+
+    /* BENTO BOX SYMMETRIC */
     .bento-card { 
-        background: var(--card); border: 1px solid #1e1e1e; border-radius: 12px; padding: 20px; 
-        height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        background: var(--card); 
+        border: 1px solid #1e1e1e; 
+        border-radius: 12px; 
+        padding: 20px; 
+        height: 120px; 
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        transition: 0.3s;
     }
+    .bento-card:hover { border-color: #333; background: #0f0f0f; }
+    
     .metric-title { color: #666; font-size: 0.7rem; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; letter-spacing: 1px; }
     .metric-value { font-family: 'JetBrains Mono'; font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+    
     .status-badge { padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; display: inline-block; }
     .open { background: rgba(0, 255, 136, 0.1); color: #00ff88; border: 1px solid #00ff88; }
     .closed { background: rgba(255, 51, 85, 0.1); color: #ff3355; border: 1px solid #ff3355; }
@@ -43,27 +60,33 @@ st.markdown("""
 def get_market_status(ticker):
     if "-USD" in ticker: return "LIVE 24/7", "open"
     if "=F" in ticker or "=X" in ticker: return "MARKET ACTIVE", "open"
+    
     tz = pytz.timezone('Asia/Jakarta' if ".JK" in ticker or "^JKSE" in ticker else 'US/Eastern')
     now = datetime.now(tz)
     if now.weekday() < 5 and 9 <= now.hour < 16: return "OPEN", "open"
     return "CLOSED", "closed"
 
 def format_currency(value, ticker):
-    if ".JK" in ticker or "^JKSE" in ticker: return f"Rp {value:,.0f}"
+    if ".JK" in ticker or "^JKSE" in ticker:
+        return f"Rp {value:,.0f}"
     return f"${value:,.2f}"
 
 @st.cache_data(ttl=600)
 def fetch_data(ticker):
     try:
-        # Gunakan yf.download dengan progress=False untuk stabilitas
+        # Menggunakan yf.download agar lebih stabil di server Streamlit
         df = yf.download(ticker, period="5y", interval="1d", auto_adjust=True, progress=False)
-        if df is None or df.empty: return None, None
         
-        # Handle New Yfinance MultiIndex Format
+        if df is None or df.empty:
+            return None, None
+            
+        # Perbaikan format kolom untuk versi yfinance terbaru
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
             
         df.reset_index(inplace=True)
+        
+        # Indikator Teknikal
         df['SMA_200'] = df['Close'].rolling(200).mean()
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -73,17 +96,18 @@ def fetch_data(ticker):
         
         upd = df['Date'].iloc[-1].strftime("%d %b %Y")
         return df.dropna(), upd
-    except:
+    except Exception as e:
         return None, None
 
 def ENGINE(df, ticker, days):
-    # Pastikan mengambil nilai skalar (angka tunggal)
+    # Pastikan mengambil nilai angka tunggal (skalar) agar tidak ValueError
     last_p = float(df['Close'].iloc[-1])
     sma_200 = float(df['SMA_200'].iloc[-1])
     rsi = float(df['RSI'].iloc[-1])
     
     is_indo = ".JK" in ticker or "^JKSE" in ticker
     growth = 0.00045 if is_indo else 0.0006 
+    
     if rsi > 75: growth -= 0.0009
     elif rsi < 30: growth += 0.0005
     
@@ -99,7 +123,7 @@ def ENGINE(df, ticker, days):
             next_v = path[-1] * (1 + growth + pull + noise)
             path.append(next_v)
         sims.append(path[1:])
-    
+        
     forecast = np.median(sims, axis=0)
     dates = [df['Date'].iloc[-1] + timedelta(days=i) for i in range(1, len(forecast)+1)]
     return {'dates': dates, 'forecast': forecast}
@@ -139,14 +163,14 @@ df, last_upd = fetch_data(ticker)
 if df is not None and not df.empty:
     sim = ENGINE(df, ticker, hrz * 21)
     
-    # FIX: Pastikan variabel di bawah ini adalah float murni bukan Series
+    # PERBAIKAN: Konversi hasil ke float murni untuk menghindari ValueError
     curr = float(df['Close'].iloc[-1])
     target = float(sim['forecast'][-1])
-    roi = (target - curr) / curr
+    roi = float((target - curr) / curr)
     
-    # FIX: Error Ambiguous Series sembuh di sini
     c_roi = "#00ff88" if roi > 0 else "#ff3355"
 
+    # SYMMETRIC 1x4 GRID
     c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
     with c1: st.markdown(f'<div class="bento-card"><div class="metric-title">{t["upd"]}</div><div class="metric-value" style="font-size:1.1rem;">{last_upd}</div></div>', unsafe_allow_html=True)
     with c2: st.markdown(f'<div class="bento-card"><div class="metric-title">{t["price"]}</div><div class="metric-value">{format_currency(curr, ticker)}</div></div>', unsafe_allow_html=True)
@@ -161,11 +185,12 @@ if df is not None and not df.empty:
         fig.add_trace(go.Candlestick(x=h['Date'], open=h['Open'], high=h['High'], low=h['Low'], close=h['Close'], name='Market', increasing_line_color='#00ff88', decreasing_line_color='#ff3355'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sim['dates'], y=sim['forecast'], name='NIXTRAD Path', line=dict(color='#0088ff', width=3, dash='dot')), row=1, col=1)
         
+        # Perbaikan warna bar volume
         v_colors = ['#00ff88' if float(r['Close']) >= float(r['Open']) else '#ff3355' for _, r in h.iterrows()]
         fig.add_trace(go.Bar(x=h['Date'], y=h['Volume'], marker_color=v_colors, opacity=0.6, name='Volume'), row=2, col=1)
         
-        fig.update_layout(template="plotly_dark", height=750, margin=dict(t=10,b=10,l=0,r=0), dragmode='pan', showlegend=False, xaxis2=dict(showgrid=False, rangeslider=dict(visible=False)), yaxis=dict(side='right', gridcolor='#111'), yaxis2=dict(side='right', gridcolor='#111'))
-        st.plotly_chart(fig, width='stretch', config={'scrollZoom': True})
+        fig.update_layout(template="plotly_dark", height=750, margin=dict(t=10,b=10,l=0,r=0), dragmode='pan', showlegend=False, xaxis2=dict(showgrid=False), yaxis=dict(side='right', gridcolor='#111'), yaxis2=dict(side='right', gridcolor='#111'))
+        st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
     with tab2:
         test_d = 90
@@ -176,9 +201,10 @@ if df is not None and not df.empty:
             fig_v.add_trace(go.Scatter(x=test['Date'], y=test['Close'], name='Real Market Price', line=dict(color='#fff', width=2.5)))
             fig_v.add_trace(go.Scatter(x=test['Date'], y=bt['forecast'], name='Proyeksi', line=dict(color='#0088ff', dash='dash', width=2)))
             fig_v.update_layout(template="plotly_dark", height=500, title="90-Day Backtest Analysis", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False), yaxis=dict(side='right', gridcolor='#111'))
-            st.plotly_chart(fig_v, width='stretch')
+            st.plotly_chart(fig_v, use_container_width=True)
             
-            rmse = np.sqrt(np.mean((test['Close'].values[:len(bt['forecast'])] - bt['forecast'][:len(test)])**2))
+            # Kalkulasi RMSE
+            rmse = np.sqrt(np.mean((test['Close'].values - bt['forecast'][:len(test)])**2))
             st.markdown(f'<div class="bento-card" style="height:auto; margin-top:20px;">RMSE: {rmse:.2f} | Reliability: {(1 - rmse/curr)*100:.1f}%</div>', unsafe_allow_html=True)
 else:
-    st.warning("Data Feed Offline atau Rate Limited. Silakan tunggu beberapa saat dan refresh halaman.")
+    st.warning("Data Feed Offline atau Terkena Rate Limit (Yahoo Finance). Silakan tunggu 10 menit lalu refresh halaman.")
