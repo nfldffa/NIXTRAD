@@ -3,23 +3,21 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://nixtrad-symmetric.streamlit.app/)
 > **Terminal Riset Pasar dengan Akurasi Tinggi & Proyeksi Realitas AI.**
 
-NIXTRAD adalah platform analisis instrumen keuangan interaktif yang menggabungkan visualisasi data real-time dengan **Golden Sentinel Engine**. Dirancang untuk memberikan proyeksi harga aset yang stabil dan terkalibrasi melalui pengujian RMSE (Root Mean Square Error).
-
-
+NIXTRAD adalah platform analisis instrumen keuangan interaktif yang menggabungkan visualisasi data real-time dengan **Region-Adaptive Engine**. Dirancang untuk memberikan proyeksi harga aset yang stabil dan terkalibrasi melalui pengujian RMSE (Root Mean Square Error).
 
 ## 🛠️ Tech Stack
 * **Language:** Python 3.11+
 * **Framework:** Streamlit
 * **Data Source:** Yahoo Finance API
 * **Visuals:** Plotly Interactive Subplots
-* **Math:** NumPy (Monte Carlo Simulation & Z-Score Snap Force)
+* **Math:** NumPy (Monte Carlo Simulation & Dynamic Mean Reversion)
 
 ## 🚀 Fitur Unggulan
-* **Golden Sentinel Engine:** Algoritma proyeksi yang diredam (*Low Variance*) untuk menjaga stabilitas akurasi jangka panjang.
-* **Bento Grid Interface:** Tampilan metrik harga, target AI, dan ROI dalam desain grid modern.
-* **90-Day Backtest Calibration:** Fitur validasi otomatis untuk menghitung nilai RMSE dan *Reliability Score* model.
-* **Multi-Asset Support:** Saham IDX (Banking, Tech, Mining), Wall Street (Magnificent 7), dan Crypto Major.
-* **Interactive Analytics:** Grafik Candlestick yang mendukung *Scroll Zoom* dan *Pan* untuk analisis mendalam.
+* **Region-Adaptive Engine:** Algoritma cerdas yang secara otomatis menyesuaikan insting momentum berdasarkan wilayah pasar (IDX vs Wall Street).
+* **Bento Grid Interface:** Tampilan metrik harga, target AI, dan ROI dalam desain grid modern yang responsif.
+* **90-Day Backtest Calibration:** Fitur validasi otomatis untuk menghitung nilai RMSE dan *Reliability Score* berdasarkan performa historis.
+* **Perfect Instinct Logic:** Integrasi *Fractal Momentum* yang mempertimbangkan akselerasi harga jangka pendek tanpa melupakan fondasi tren jangka panjang.
+* **Interactive Analytics:** Grafik Candlestick bertenaga Plotly yang mendukung *Scroll Zoom* dan *Pan* untuk analisis teknikal mendalam.
 
 ## 📈 Cara Menjalankan Secara Lokal
 1.  **Clone Repository:**
