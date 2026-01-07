@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 import random
 
 # ==========================================
-# 1. NIXTRAD V35.1 | GOLDEN STABLE (FINAL)
+# 1. NIXTRAD
 # ==========================================
 st.set_page_config(
-    page_title="NIXTRAD | GOLDEN STABLE",
+    page_title="NIXTRAD SYMMETRIC",
     layout="wide",
     page_icon="💹",
     initial_sidebar_state="expanded"
