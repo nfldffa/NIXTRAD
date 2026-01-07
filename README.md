@@ -1,4 +1,4 @@
-# 💹 NIXTRAD SYMMETRIC V42.0
+# 💹 NIXTRAD SYMMETRIC
 > **High-Precision Quantitative Market Research Terminal**
 
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
