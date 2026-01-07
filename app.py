@@ -13,6 +13,7 @@ import random
 # ==========================================
 st.set_page_config(page_title="NIXTRAD SYMMETRIC", layout="wide", initial_sidebar_state="expanded")
 
+# Fix Seed for Consistency
 np.random.seed(42)
 random.seed(42)
 
@@ -34,7 +35,7 @@ st.markdown("""
         border: 1px solid #1e1e1e; 
         border-radius: 12px; 
         padding: 20px; 
-        height: 120px; /* Force uniform height */
+        height: 120px; 
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -58,42 +59,60 @@ st.markdown("""
 # ==========================================
 def get_market_status(ticker):
     if "-USD" in ticker: return "LIVE 24/7", "open"
-    tz = pytz.timezone('Asia/Jakarta' if ".JK" in ticker else 'US/Eastern')
+    if "=F" in ticker or "=X" in ticker: return "MARKET ACTIVE", "open"
+    
+    tz = pytz.timezone('Asia/Jakarta' if ".JK" in ticker or "^JKSE" in ticker else 'US/Eastern')
     now = datetime.now(tz)
     if now.weekday() < 5 and 9 <= now.hour < 16: return "OPEN", "open"
     return "CLOSED", "closed"
 
 def format_currency(value, ticker):
-    symbol = "Rp" if ".JK" in ticker else "$"
-    return f"{symbol} {value:,.0f}" if symbol == "Rp" else f"{symbol}{value:,.2f}"
+    if ".JK" in ticker or "^JKSE" in ticker:
+        return f"Rp {value:,.0f}"
+    elif "-USD" in ticker or "BTC" in ticker:
+        return f"${value:,.2f}"
+    return f"${value:,.2f}"
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)
 def fetch_data(ticker):
     try:
-        data = yf.Ticker(ticker)
-        df = data.history(period="10y", interval="1d", auto_adjust=True)
-        if df.empty: return None, None
+        # Pake yf.download atau Ticker dengan penanganan error lebih kuat
+        df = yf.download(ticker, period="10y", interval="1d", auto_adjust=True, progress=False)
+        
+        if df.empty:
+            return None, None
+            
         df.reset_index(inplace=True)
+        
+        # Kalkulasi Indikator
         df['SMA_200'] = df['Close'].rolling(200).mean()
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        df['RSI'] = 100 - (100 / (1 + (gain / loss)))
+        rs = gain / loss.replace(0, np.nan)
+        df['RSI'] = 100 - (100 / (1 + rs))
+        
         upd = df['Date'].iloc[-1].strftime("%d %b %Y")
         return df.dropna(), upd
-    except: return None, None
+    except Exception as e:
+        st.sidebar.error(f"Error: {e}")
+        return None, None
 
 def ENGINE(df, ticker, days):
     last_p = df['Close'].iloc[-1]
     sma_200 = df['SMA_200'].iloc[-1]
     rsi = df['RSI'].iloc[-1]
-    is_indo = ".JK" in ticker
+    
+    is_indo = ".JK" in ticker or "^JKSE" in ticker
     growth = 0.00045 if is_indo else 0.0006 
+    
     if rsi > 75: growth -= 0.0009
     elif rsi < 30: growth += 0.0005
+    
     gravity = 0.00018
     rng = np.random.default_rng(42)
     sims = []
+    
     for _ in range(15):
         path = [last_p]
         for t in range(days):
@@ -102,17 +121,21 @@ def ENGINE(df, ticker, days):
             next_v = path[-1] * (1 + growth + pull + noise)
             path.append(next_v)
         sims.append(path[1:])
+        
     forecast = np.median(sims, axis=0)
     dates = [df['Date'].iloc[-1] + timedelta(days=i) for i in range(1, len(forecast)+1)]
     return {'dates': dates, 'forecast': forecast}
 
 # ==========================================
-# 3. SIDEBAR & DATABASE
+# 3. SIDEBAR & DATABASE (KATEGORI LENGKAP)
 # ==========================================
 DB = {
-    "🇮🇩 INDONESIA": ["BBCA.JK", "BBRI.JK", "BMRI.JK", "GOTO.JK", "TLKM.JK", "ANTM.JK"],
-    "🇺🇸 USA TECH": ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMD"],
-    "🪙 CRYPTO": ["BTC-USD", "ETH-USD", "SOL-USD"]
+    "🇮🇩 INDONESIA STOCKS": ["BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK", "GOTO.JK", "ANTM.JK"],
+    "🇺🇸 USA TECH": ["NVDA", "AAPL", "TSLA", "MSFT", "GOOGL", "AMD", "META"],
+    "🪙 CRYPTO CURRENCY": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "DOGE-USD"],
+    "🏆 COMMODITIES": ["GC=F", "SI=F", "CL=F"], # Gold, Silver, Oil
+    "📈 GLOBAL INDICES": ["^JKSE", "^GSPC", "^IXIC", "^DJI"], # IHSG, S&P 500, Nasdaq
+    "💱 FOREX": ["USDIDR=X", "EURUSD=X", "GBPUSD=X", "JPYUSD=X"]
 }
 
 with st.sidebar:
@@ -126,7 +149,7 @@ with st.sidebar:
     st.markdown(f'<div class="status-badge {m_css}">{m_txt}</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. RENDER UI (THE SYMMETRIC GRID)
+# 4. RENDER UI
 # ==========================================
 t = {
     "ID": {"upd": "Update", "price": "Harga", "target": "Target", "roi": "ROI", "val": "Validasi"},
@@ -135,7 +158,7 @@ t = {
 
 df, last_upd = fetch_data(ticker)
 
-if df is not None:
+if df is not None and not df.empty:
     sim = ENGINE(df, ticker, hrz * 21)
     curr, target = df['Close'].iloc[-1], sim['forecast'][-1]
     roi = (target - curr) / curr
@@ -151,7 +174,6 @@ if df is not None:
     tab1, tab2 = st.tabs(["📉 Terminal Analytics", f"🛡️ {t['val']}"])
     
     with tab1:
-        # GRAPH 2 LANTAI
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
         h = df.tail(400)
         fig.add_trace(go.Candlestick(x=h['Date'], open=h['Open'], high=h['High'], low=h['Low'], close=h['Close'], name='Market', increasing_line_color='#00ff88', decreasing_line_color='#ff3355'), row=1, col=1)
@@ -168,7 +190,6 @@ if df is not None:
         train, test = df.iloc[:-test_d], df.iloc[-test_d:]
         bt = ENGINE(train, ticker, test_d)
         if bt:
-            # VALIDATION CHART (SAMA PERSIS DENGAN SCREENSHOT)
             fig_v = go.Figure()
             fig_v.add_trace(go.Scatter(x=test['Date'], y=test['Close'], name='Real Market Price', line=dict(color='#fff', width=2.5)))
             fig_v.add_trace(go.Scatter(x=test['Date'], y=bt['forecast'], name='Proyeksi', line=dict(color='#0088ff', dash='dash', width=2)))
@@ -178,4 +199,4 @@ if df is not None:
             rmse = np.sqrt(np.mean((test['Close'].values[:len(bt['forecast'])] - bt['forecast'][:len(test)])**2))
             st.markdown(f'<div class="bento-card" style="height:auto; margin-top:20px;">RMSE: {rmse:.2f} | Reliability: {(1 - rmse/curr)*100:.1f}%</div>', unsafe_allow_html=True)
 else:
-    st.error("Data Feed Offline.")
+    st.error("Data Feed Offline. Pastikan ticker benar atau koneksi API tidak terblokir.")
