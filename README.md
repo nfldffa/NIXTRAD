@@ -1,6 +1,6 @@
 # 💹 NIXTRAD SYMMETRIC
 
-![Streamlit App](https://nixtrad-symmetric.streamlit.app/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://nixtrad-symmetric.streamlit.app/)
 > **Terminal Riset Pasar dengan Akurasi Tinggi & Proyeksi Realitas AI.**
 
 NIXTRAD adalah platform analisis instrumen keuangan interaktif yang menggabungkan visualisasi data real-time dengan **Golden Sentinel Engine**. Dirancang untuk memberikan proyeksi harga aset yang stabil dan terkalibrasi melalui pengujian RMSE (Root Mean Square Error).
